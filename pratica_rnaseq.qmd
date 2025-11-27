@@ -42,7 +42,7 @@ biplot(pca, colby = "CellType", shape = "Status", legendPosition = "left")
 
 
 ```{r}
-res_dge <- DESeq2::results(dds, contrast = c("Status", "lactate", "virgin"))
+res_dge <- DESeq2::results(dds, contrast = c("Status", "lactate", "pregnant"))
 res_dge <- as.data.frame(res_dge)
 
 res_dge <- res_dge %>% 
@@ -50,14 +50,14 @@ res_dge <- res_dge %>%
     padj = ifelse(is.na(padj), 1, padj),
     signif = 
       case_when(
-        padj <= 0.05 & log2FoldChange < 0 ~ "Downregulated",
-        padj <= 0.05 & log2FoldChange > 0 ~ "Upregulated",
-        padj > 0.05 ~ "Not significant"
+        padj <= 0.001 & log2FoldChange < 0 ~ "Downregulated",
+        padj <= 0.001 & log2FoldChange > 0 ~ "Upregulated",
+        padj > 0.001 ~ "Not significant"
       )
   )
 
 # Filtrar os genes diferencialmente expressos (padj <= 0.05) 
-res_dge <- subset(res_dge, padj <= 0.05)
+res_dge <- subset(res_dge, padj <= 0.01)
 
 # Selecionar os genes DGE
 dge <- rownames(res_dge)
@@ -82,27 +82,28 @@ pheatmap(exp_dge_z_score, show_rownames = F, annotation_col = ann_col, cluster_c
 
 
 ```{r}
-meta_lum <- subset(metadata, CellType == "luminal")
-count_lum <- select(gene_count, meta_lum$SampleName)
+# meta_lum <- subset(metadata, CellType == "luminal")
+# count_lum <- select(gene_count, meta_lum$SampleName)
+
 ```
 
 ```{r}
-dds <- DESeqDataSetFromMatrix(count_lum,
-                                colData = meta_lum,
-                                design = ~ Status )
-
-dds_vst <- vst(dds)
-dds <- DESeq(dds)
+# dds <- DESeqDataSetFromMatrix(count_lum,
+#                                 colData = meta_lum,
+#                                 design = ~ CellType )
+# 
+# dds_vst <- vst(dds)
+# dds <- DESeq(dds)
 ```
 ```{r}
-counts_genes_vst <- assay(dds_vst)
-pca <- pca(counts_genes_vst, metadata = meta_lum)
-biplot(pca, colby = "CellType", shape = "Status", legendPosition = "left")
+# counts_genes_vst <- assay(dds_vst)
+# pca <- pca(counts_genes_vst, metadata = meta_lum)
+# biplot(pca, colby = "CellType", shape = "Status", legendPosition = "left")
 ```
 
 ```{r}
-res_dge <- DESeq2::results(dds, contrast = c("Status", "lactate", "virgin"))
-res_dge <- as.data.frame(res_dge)
+# res_dge <- DESeq2::results(dds, contrast = c("Status", "lactate", "virgin"))
+# res_dge <- as.data.frame(res_dge)
 ```
 
 ```{r}
@@ -111,9 +112,9 @@ res_dge <- res_dge %>%
     padj = ifelse(is.na(padj), 1, padj),
     signif = 
       case_when(
-        padj <= 0.05 & log2FoldChange < 0 ~ "Downregulated",
-        padj <= 0.05 & log2FoldChange > 0 ~ "Upregulated",
-        padj > 0.05 ~ "Not significant"
+        padj <= 0.001 & log2FoldChange < 0 ~ "Downregulated",
+        padj <= 0.001 & log2FoldChange > 0 ~ "Upregulated",
+        padj > 0.001 ~ "Not significant"
       )
   )
 
@@ -124,7 +125,7 @@ ggplot(res_dge, aes(x = log2FoldChange, y = -log10(padj), color = signif)) +
 
 ```{r}
 # Filtrar os genes diferencialmente expressos (padj <= 0.05) 
-res_dge <- subset(res_dge, padj <= 0.05)
+res_dge <- subset(res_dge, padj <= 0.001)
 
 # Selecionar os genes DGE
 dge <- rownames(res_dge)
@@ -138,7 +139,8 @@ exp_dge <- exp_genes[idx,]
 
 # Transformar valores de expressão em z-score
 exp_dge_z_score <- t(apply(exp_dge, 1, scale, center = T, scale = T))
-colnames(exp_dge_z_score) <- rownames(meta_lum)
+colnames(exp_dge_z_score) <- rownames(metadata)
+#colnames(exp_dge_z_score) <- rownames(meta_lum)
 
 # Criar coluna de anotação
 ann_col <- as.data.frame(colData(dds)[, c("Status", "CellType")])
@@ -211,7 +213,7 @@ library(RCurl)
 # Vamos pegar os genes diferencialmente expressos que definimos antes (variável 'dge')
 # Se a lista for muito grande (>2000), o STRING pode reclamar. 
 # Aqui assumo que 'dge' contém os IDs dos genes significativos (Entrez IDs)
-genes_input <- dge 
+genes_input <- rownames(res_dge) 
 genes_concatenado <- paste0(genes_input, collapse = "%0d")
 
 # 2. Mapear IDs para o formato do STRING
@@ -230,7 +232,12 @@ print(paste("Genes mapeados:", nrow(map_ids)))
 
 # 3. Obter a rede de interação
 # Concatenar os identificadores STRING obtidos
+
+
+
 genes_string_concatenado <- paste0(unique(map_ids$stringId), collapse = "%0d")
+
+
 
 # Requisição para o método 'network'
 # Importante: species = "10090"
